@@ -188,6 +188,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dofile',  action='store_true',    help='Run the Lua script after upload')
     parser.add_argument('-v', '--verbose', action='store_true',    help="Show progress messages.")
     parser.add_argument('-a', '--append',  action='store_true',    help='Append source file to destination file.')
+    parser.add_argument('-g', '--get',     default=None,           help='Get contents of specified file on MCU')
     parser.add_argument('-l', '--list',    action='store_true',    help='List files on device')
     parser.add_argument('-w', '--wipe',    action='store_true',    help='Delete all lua/lc files on device.')
     parser.add_argument('-i', '--id',      action='store_true',    help='Query the modules chip id.')
@@ -203,6 +204,49 @@ if __name__ == '__main__':
 
     if args.verbose:
         transport.setverbose(True)
+
+    if args.get:
+        transport.writeln("=file.open('" + args.get + "', 'r')\r", 0)
+        line = ""
+        while True:
+            char = transport.read(1)
+            if char == '' or char == chr(62):
+                break
+            line += char
+
+        if char == chr(62):
+            char = transport.read(1)
+
+        line = line.strip()
+        if line == "nil":
+            sys.stderr.write("File %s does not exist on device\n" % args.get)
+            sys.exit(1)
+        if line != "true":
+            raise Exception('No proper answer from MCU')
+
+        # file.readline() includes trailing newlines so they are doubled
+        # detect EOF as "nil" followed by single newline and prompt (prompt could appear elsewhere)
+        transport.writeln("local l; repeat l = file.readline(); print(l) until l == nil;file.close()\r", 0)
+
+        line = ""
+        while True:
+            char = transport.read(1)
+            if char == '':
+                break
+            if char == chr(13) or char == chr(10):  # LF or CR
+                prevch = char
+
+                # Must be a second newline if still printing the file
+                char = transport.read(1)
+                if prevch != char:  # EOF, skip previous line ("nil")
+                    break
+
+                sys.stdout.write(line + prevch)
+                line = ""
+                continue
+
+            line += char
+        sys.exit(0)
 
     if args.list:
         transport.writeln("local l = file.list();for k,v in pairs(l) do print('name:'..k..', size:'..v)end\r", 0)
