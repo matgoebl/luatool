@@ -195,6 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--execute', default=None,           help='Execute command.')
     parser.add_argument('--delete',        default=None,           help='Delete a lua/lc file from device.')
     parser.add_argument('--ip',            default=None,           help='Connect to a telnet server on the device (--ip IP[:port])')
+    parser.add_argument('-W', '--strip-whitespace',dest='strip',action='store_true',help='Remove leading/trailing whitespace, empty lines and comments')
     args = parser.parse_args()
 
     try:
@@ -352,12 +353,18 @@ if __name__ == '__main__':
             transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
         else:
             transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
-        line = f.readline()
         if args.verbose:
             sys.stderr.write("\r\nStage 3. Start writing data to flash memory...")
-        while line != '':
-            transport.writer(line.strip())
+        while True:
             line = f.readline()
+            if not line:
+                break
+            line = line.strip()
+            if args.strip:
+                if line.startswith("--") or len(line) == 0:
+                    # Comment or empty line -> skip
+                    continue
+            transport.writer(line)
 
         # close both files
         f.close()
