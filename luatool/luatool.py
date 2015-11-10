@@ -34,6 +34,9 @@ class TransportError(Exception):
     def __init__(self, message):
         self.message = message
 
+    def __str__(self):
+        return repr(self.message)
+
 
 class AbstractTransport:
     def __init__(self):
@@ -70,8 +73,8 @@ class AbstractTransport:
                         else:
                             expected = expected.split("\r")[0]
                             sys.stdout.write("\r\n\r\nERROR")
-                            sys.stdout.write("\r\n send string    : '%s'" % data)
-                            sys.stdout.write("\r\n expected echo  : '%s'" % data)
+                            sys.stdout.write("\r\n send string    : '%s'" % expected)
+                            sys.stdout.write("\r\n expected echo  : '%s'" % expected)
                             sys.stdout.write("\r\n but got answer : '%s'" % line)
                             sys.stdout.write("\r\n\r\n")
                             raise Exception('Error sending data to MCU\r\n\r\n')
@@ -88,8 +91,8 @@ class SerialTransport(AbstractTransport):
 
         try:
             self.serial = serial.Serial(port, baud)
-        except serial.SerialException as e:
-            raise TransportError(e.strerror)
+        except serial.SerialException as exception:
+            raise TransportError(exception)
 
         self.serial.timeout = 3
         self.serial.interCharTimeout = 3
@@ -123,8 +126,8 @@ class TcpSocketTransport(AbstractTransport):
 
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error as e:
-            raise TransportError(e.strerror)
+        except socket.error as exception:
+            raise TransportError(exception)
 
         try:
             self.socket.connect((host, port))
@@ -182,7 +185,11 @@ if __name__ == '__main__':
     parser.add_argument('--ip',            default=None,           help='Connect to a telnet server on the device (--ip IP[:port])')
     args = parser.parse_args()
 
-    transport = decidetransport(args)
+    try:
+        transport = decidetransport(args)
+    except TransportError as e:
+        print(e)
+        sys.exit(1)
 
     if args.list:
         transport.writeln("local l = file.list();for k,v in pairs(l) do print('name:'..k..', size:'..v)end\r", 0)
