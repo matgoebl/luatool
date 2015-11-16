@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ESP8266 Lua script uploader.')
     parser.add_argument('-p', '--port',    default='/dev/ttyUSB0', help='Device name, default /dev/ttyUSB0')
     parser.add_argument('-b', '--baud',    default=9600,           help='Baudrate, default 9600')
-    parser.add_argument('-f', '--src',     default='main.lua',     help='Source file on computer, default main.lua')
+    parser.add_argument('-f', '--src',     default=None,           help='Source file on computer')
     parser.add_argument('-t', '--dest',    default=None,           help='Destination file on MCU, default to source file name')
     parser.add_argument('-c', '--compile', action='store_true',    help='Compile lua to lc after upload')
     parser.add_argument('-r', '--restart', action='store_true',    help='Restart MCU after upload')
@@ -249,67 +249,68 @@ if __name__ == '__main__':
         transport.writeln("file.remove(\"" + args.delete + "\")\r")
         sys.exit(0)
 
-    if args.dest is None:
-        args.dest = basename(args.src)
+    if args.src:
+        if args.dest is None:
+            args.dest = basename(args.src)
 
-    # open source file for reading
-    try:
-        f = open(args.src, "rt")
-    except:
-        sys.stderr.write("Could not open input file \"%s\"\n" % args.src)
-        sys.exit(1)
-
-    # Verify the selected file will not exceed the size of the serial buffer.
-    # The size of the buffer is 256. This script does not accept files with
-    # lines longer than 230 characters to have some room for command overhead.
-    for ln in f:
-        if len(ln) > 230:
-            sys.stderr.write("File \"%s\" contains a line with more than 240 "
-                             "characters. This exceeds the size of the serial buffer.\n"
-                             % args.src)
-            f.close()
+        # open source file for reading
+        try:
+            f = open(args.src, "rt")
+        except:
+            sys.stderr.write("Could not open input file \"%s\"\n" % args.src)
             sys.exit(1)
 
-    # Go back to the beginning of the file after verifying it has the correct
-    # line length
-    f.seek(0)
+        # Verify the selected file will not exceed the size of the serial buffer.
+        # The size of the buffer is 256. This script does not accept files with
+        # lines longer than 230 characters to have some room for command overhead.
+        for ln in f:
+            if len(ln) > 230:
+                sys.stderr.write("File \"%s\" contains a line with more than 240 "
+                                 "characters. This exceeds the size of the serial buffer.\n"
+                                 % args.src)
+                f.close()
+                sys.exit(1)
 
-    # set serial timeout
-    if args.verbose:
-        sys.stderr.write("Upload starting\r\n")
+        # Go back to the beginning of the file after verifying it has the correct
+        # line length
+        f.seek(0)
 
-    # remove existing file on device
-    if args.append==False:
+        # set serial timeout
         if args.verbose:
-            sys.stderr.write("Stage 1. Deleting old file from flash memory")
-        transport.writeln("file.open(\"" + args.dest + "\", \"w\")\r")
-        transport.writeln("file.close()\r")
-        transport.writeln("file.remove(\"" + args.dest + "\")\r")
-    else:
+            sys.stderr.write("Upload starting\r\n")
+
+        # remove existing file on device
+        if args.append==False:
+            if args.verbose:
+                sys.stderr.write("Stage 1. Deleting old file from flash memory")
+            transport.writeln("file.open(\"" + args.dest + "\", \"w\")\r")
+            transport.writeln("file.close()\r")
+            transport.writeln("file.remove(\"" + args.dest + "\")\r")
+        else:
+            if args.verbose:
+                sys.stderr.write("[SKIPPED] Stage 1. Deleting old file from flash memory [SKIPPED]")
+
+
+        # read source file line by line and write to device
         if args.verbose:
-            sys.stderr.write("[SKIPPED] Stage 1. Deleting old file from flash memory [SKIPPED]")
-
-
-    # read source file line by line and write to device
-    if args.verbose:
-        sys.stderr.write("\r\nStage 2. Creating file in flash memory and write first line")
-    if args.append: 
-        transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
-    else:
-        transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
-    line = f.readline()
-    if args.verbose:
-        sys.stderr.write("\r\nStage 3. Start writing data to flash memory...")
-    while line != '':
-        transport.writer(line.strip())
+            sys.stderr.write("\r\nStage 2. Creating file in flash memory and write first line")
+        if args.append: 
+            transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
+        else:
+            transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
         line = f.readline()
+        if args.verbose:
+            sys.stderr.write("\r\nStage 3. Start writing data to flash memory...")
+        while line != '':
+            transport.writer(line.strip())
+            line = f.readline()
 
-    # close both files
-    f.close()
-    if args.verbose:
-        sys.stderr.write("\r\nStage 4. Flush data and closing file")
-    transport.writeln("file.flush()\r")
-    transport.writeln("file.close()\r")
+        # close both files
+        f.close()
+        if args.verbose:
+            sys.stderr.write("\r\nStage 4. Flush data and closing file")
+        transport.writeln("file.flush()\r")
+        transport.writeln("file.close()\r")
 
     # compile?
     if args.compile:
