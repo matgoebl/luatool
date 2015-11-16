@@ -64,7 +64,7 @@ class AbstractTransport:
             if char == chr(13) or char == chr(10):  # LF or CR
                 if line != '':
                     line = line.strip()
-                    if line+'\r' == expected:
+                    if line+'\r' == expected and self.verbose:
                         sys.stdout.write(" -> ok")
                     else:
                         if line[:4] == "lua:":
@@ -82,12 +82,16 @@ class AbstractTransport:
             else:
                 line += char
 
+    def setverbose(self, verbose=True):
+        self.verbose = verbose
+
 
 class SerialTransport(AbstractTransport):
     def __init__(self, port, baud):
         self.port = port
         self.baud = baud
         self.serial = None
+        self.verbose = False
 
         try:
             self.serial = serial.Serial(port, baud)
@@ -100,14 +104,14 @@ class SerialTransport(AbstractTransport):
     def writeln(self, data, check=1):
         if self.serial.inWaiting() > 0:
             self.serial.flushInput()
-        if len(data) > 0:
+        if len(data) > 0 and self.verbose:
             sys.stdout.write("\r\n->")
             sys.stdout.write(data.split("\r")[0])
         self.serial.write(data)
         sleep(0.3)
         if check > 0:
             self.performcheck(data)
-        else:
+        elif self.verbose:
             sys.stdout.write(" -> send without check")
 
     def read(self, length):
@@ -123,6 +127,7 @@ class TcpSocketTransport(AbstractTransport):
         self.host = host
         self.port = port
         self.socket = None
+        self.verbose = False
 
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -142,13 +147,13 @@ class TcpSocketTransport(AbstractTransport):
         self.socket.settimeout(3.0)
 
     def writeln(self, data, check=1):
-        if len(data) > 0:
+        if len(data) > 0 and self.verbose:
             sys.stdout.write("\r\n->")
             sys.stdout.write(data.split("\r")[0])
         self.socket.sendall(data)
         if check > 0:
             self.performcheck(data)
-        else:
+        elif self.verbose:
             sys.stdout.write(" -> send without check")
 
     def read(self, length):
@@ -195,6 +200,9 @@ if __name__ == '__main__':
     except TransportError as e:
         print(e)
         sys.exit(1)
+
+    if args.verbose:
+        transport.setverbose(True)
 
     if args.list:
         transport.writeln("local l = file.list();for k,v in pairs(l) do print('name:'..k..', size:'..v)end\r", 0)
@@ -322,4 +330,5 @@ if __name__ == '__main__':
     # flush screen
     sys.stdout.flush()
     sys.stderr.flush()
-    sys.stderr.write("\r\n--->>> All done <<<---\r\n")
+    if args.verbose:
+        sys.stderr.write("\r\n--->>> All done <<<---\r\n")
