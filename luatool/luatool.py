@@ -134,7 +134,12 @@ class TcpSocketTransport(AbstractTransport):
         except socket.error as e:
             raise TransportError(e.strerror)
         # read intro from telnet server (see telnet_srv.lua)
-        self.socket.recv(50)
+        self.socket.settimeout(0.5)
+        try:
+            self.socket.recv(50)
+        except socket.error:
+            pass
+        self.socket.settimeout(3.0)
 
     def writeln(self, data, check=1):
         if len(data) > 0:
