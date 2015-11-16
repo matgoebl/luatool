@@ -192,6 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list',    action='store_true',    help='List files on device')
     parser.add_argument('-w', '--wipe',    action='store_true',    help='Delete all lua/lc files on device.')
     parser.add_argument('-i', '--id',      action='store_true',    help='Query the modules chip id.')
+    parser.add_argument('-e', '--execute', default=None,           help='Execute command.')
     parser.add_argument('--delete',        default=None,           help='Delete a lua/lc file from device.')
     parser.add_argument('--ip',            default=None,           help='Connect to a telnet server on the device (--ip IP[:port])')
     args = parser.parse_args()
@@ -204,6 +205,15 @@ if __name__ == '__main__':
 
     if args.verbose:
         transport.setverbose(True)
+
+    if args.execute is not None:
+        transport.writeln("="+args.execute+"\r", 0)
+        while True:
+            char = transport.read(1)
+            if char == '' or char == chr(62):
+                break
+            sys.stdout.write(char)
+        sys.exit(0)
 
     if args.get:
         transport.writeln("=file.open('" + args.get + "', 'r')\r", 0)
