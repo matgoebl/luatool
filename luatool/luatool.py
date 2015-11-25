@@ -207,15 +207,6 @@ if __name__ == '__main__':
     if args.verbose:
         transport.setverbose(True)
 
-    if args.execute is not None:
-        transport.writeln("="+args.execute+"\r", 0)
-        while True:
-            char = transport.read(1)
-            if char == '' or char == chr(62):
-                break
-            sys.stdout.write(char)
-        sys.exit(0)
-
     if args.get:
         transport.writeln("=file.open('" + args.get + "', 'r')\r", 0)
         line = ""
@@ -380,13 +371,22 @@ if __name__ == '__main__':
         transport.writeln("node.compile(\"" + args.dest + "\")\r")
         transport.writeln("file.remove(\"" + args.dest + "\")\r")
 
-    # restart or dofile
-    if args.restart:
-        transport.writeln("node.restart()\r", 0)
-
     if args.dofile:   # never exec if restart=1
         dofile_name = args.compile and args.dest.replace(".lua", ".lc") or args.dest
         transport.writeln("dofile(\"" + dofile_name + "\")\r", 0)
+
+    if args.execute is not None:
+        transport.writeln(args.execute+"\r", 0)
+        while True:
+            char = transport.read(1)
+            if char == '' or char == chr(62):
+                sys.stdout.write("\r\n")
+                break
+            sys.stdout.write(char)
+
+    # restart or dofile
+    if args.restart:
+        transport.writeln("node.restart()\r", 0)
 
     # close serial port
     transport.close()
