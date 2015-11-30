@@ -28,7 +28,7 @@ sv:listen(8266, function(c)
        p[k]=v:gsub("%%(%x%x)",function(s) return string.char(tonumber(s,16)) end)
       end
      end
-     handle_http(c,m,u,p)
+     pcall(function() handle_http(c,m,u,p) end)
      c:close()
     end
    end

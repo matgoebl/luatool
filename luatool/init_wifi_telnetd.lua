@@ -12,7 +12,7 @@ pcall(function() dofile("config.lua") end)
 
 -- Start telnet service on port 8266
 print("start telnetd")
-local sv=net.createServer(net.TCP, 30)
+sv=net.createServer(net.TCP, 30)
 sv:listen(8266, function(c)
  node.output(function(s) if c~=nil then c:send(s) end end, 0)
  c:on("receive", function(c,d) node.input(d) end)
