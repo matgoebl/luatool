@@ -12,6 +12,7 @@ end
 
 handle_http = function(c,m,u,p)
  r = nil
+ if u == "/" then u="/index.html" end
  if u == "/info" then
   -- send json demo
   info={info={node.info()},chipid=node.chipid(),flashid=node.flashid(),heap=node.heap()}
@@ -29,6 +30,15 @@ handle_http = function(c,m,u,p)
    gpio.mode(ledbutton_pin,gpio.INPUT,gpio.PULLUP)
   end
   http_send_json(c,{set=p.set})
+ elseif u:match("%.html$") then
+  c:send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
+  file.open(u:gsub("[^.%w]",""),"r")
+  while true do
+   l=file.readline()
+   if l==nil then break end
+   c:send(l)
+  end
+  file.close()
  else
   -- custom url handler must return table for jsonification or nil for error message
   if url_handlers[u] then

@@ -30,6 +30,7 @@ sv:listen(8266, function(c)
      end
      pcall(function() handle_http(c,m,u,p) end)
      c:close()
+     return
     end
    end
   end
