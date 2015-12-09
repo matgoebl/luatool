@@ -156,6 +156,9 @@ class TcpSocketTransport(AbstractTransport):
         elif self.verbose:
             sys.stdout.write(" -> send without check\r\n")
 
+    def write(self, data):
+        self.socket.sendall(data)
+
     def read(self, length):
         return self.socket.recv(length)
 
@@ -183,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--baud',    default=9600,           help='Baudrate, default 9600')
     parser.add_argument('-f', '--src',     default=None,           help='Source file on computer')
     parser.add_argument('-t', '--dest',    default=None,           help='Destination file on MCU, default to source file name')
+    parser.add_argument('-B', '--binary',  action='store_true',    help='Upload as binary (needs sv_conn global in telnet.lua)')
     parser.add_argument('-c', '--compile', action='store_true',    help='Compile lua to lc after upload')
     parser.add_argument('-r', '--restart', action='store_true',    help='Restart MCU after upload')
     parser.add_argument('-d', '--dofile',  action='store_true',    help='Run the Lua script after upload')
@@ -310,7 +314,7 @@ if __name__ == '__main__':
         # The size of the buffer is 256. This script does not accept files with
         # lines longer than 230 characters to have some room for command overhead.
         for ln in f:
-            if len(ln) > 230:
+            if len(ln) > 230 and args.binary is None:
                 sys.stderr.write("File \"%s\" contains a line with more than 240 "
                                  "characters. This exceeds the size of the serial buffer.\n"
                                  % args.src)
@@ -346,7 +350,30 @@ if __name__ == '__main__':
             transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
         if args.verbose:
             sys.stderr.write("\r\nStage 3. Start writing data to flash memory...")
-        while True:
+
+        if args.binary:
+          total_len=0
+          if args.verbose:
+            transport.writeln("node.output(nil) sv_recv_total=0 sv_conn:on(\"receive\", function(c,d) file.write(d) print(d:len()) sv_recv_total=sv_recv_total+d:len() end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() print(\"Received \"..sv_recv_total..\" bytes\") end)",0)
+          else:
+            transport.writeln("node.output(nil) sv_conn:on(\"receive\", function(c,d) file.write(d) end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() end)",0)
+          sleep(1)
+          while True:
+            data = f.read(256)
+            if not data:
+                break
+            transport.write(data)
+            total_len+=len(data)
+            if args.verbose:
+                sys.stderr.write("\r\nWrote {} bytes...".format(len(data)))
+          f.close()
+          sleep(1)
+          transport.close()
+          if args.verbose:
+            sys.stderr.write("\r\nEnd. Uploaded {} bytes, Need to close connection after binary upload\r\n".format(total_len))
+          exit(0)
+        else:
+          while True:
             line = f.readline()
             if not line:
                 break

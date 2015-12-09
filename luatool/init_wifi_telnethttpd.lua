@@ -10,35 +10,40 @@ ledbutton_pin=3
 
 pcall(function() dofile("config.lua") end)
 
--- Start telnet service on port 8266
-print("start telnetd")
+-- Start telnet/http service on port 8266
+print("start telnet/httpd")
 sv=net.createServer(net.TCP, 30)
 sv:listen(8266, function(c)
  sv_telnet=false
+ sv_conn=c
+ c:on("sent",function() end)
+ c:on("disconnection", function(c) node.output(nil) end)
  c:on("receive", function(c,d)
+  collectgarbage()
   if handle_http ~= nil and sv_telnet == false and d ~= nil then
    local m,u,q=d:match("^([^ ]*)[ ]+([^? ]*)\??([^ ]*)[ ]+[Hh][Tt][Tt][Pp]/")
    if m ~= nil and u ~= nil then
+    d=nil
     m=m:upper()
-    if m == "GET" then
-     local p={}
-     for s in string.gmatch(q:gsub('+',' '),"([^&]+)") do
-      k,v=s:match("(.*)=(.*)")
-      if k ~= nil then
-       p[k]=v:gsub("%%(%x%x)",function(s) return string.char(tonumber(s,16)) end)
-      end
+    local p={}
+    for s in string.gmatch(q:gsub('+',' '),"([^&]+)") do
+     local k,v=s:match("(.*)=(.*)")
+     if k ~= nil then
+      p[k]=v:gsub("%%(%x%x)",function(s) return string.char(tonumber(s,16)) end)
      end
-     pcall(function() handle_http(c,m,u,p) end)
-     c:close()
-     return
     end
+    c:on("receive",function() end)
+    collectgarbage()
+    local s,r=pcall(function() return handle_http(c,m,u,p) end)
+    collectgarbage()
+    if s==false or r==nil then c:close() end
+    return
    end
   end
   sv_telnet = true
   node.output(function(s) if c~=nil then c:send(s) end end, 0)
   node.input(d)
  end)
- c:on("disconnection", function(c) node.output(nil) end)
 end)
 
 -- Led on for 500ms
