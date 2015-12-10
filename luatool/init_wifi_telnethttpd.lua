@@ -52,7 +52,7 @@ gpio.write(ledbutton_pin,gpio.LOW)
 tmr.alarm(0, 500, 0, function()
  -- Press button for standalone ap mode (WIFI AP, DHCP, telnet running, wifi key from config.lua or open)
  gpio.mode(ledbutton_pin,gpio.INPUT,gpio.PULLUP)
- if gpio.read(ledbutton_pin) == gpio.LOW or wifi_cfg == nil then
+ if gpio.read(ledbutton_pin) == gpio.LOW or wifi_cfg == nil or wifi_cfg.ssid == nil then
   print("start ap mode")
   wifi.setmode(wifi.SOFTAP)
   wifi.ap.config({ssid="ESP8266_"..node.chipid(),pwd=wifi_cfg and wifi_cfg.key})
