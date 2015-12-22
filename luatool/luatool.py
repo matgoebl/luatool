@@ -158,6 +158,7 @@ class TcpSocketTransport(AbstractTransport):
 
     def write(self, data):
         self.socket.sendall(data)
+	sleep(0.1)
 
     def read(self, length):
         return self.socket.recv(length)
