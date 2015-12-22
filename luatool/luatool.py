@@ -256,7 +256,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.list:
-        transport.writeln("local l = file.list();for k,v in pairs(l) do print('name:'..k..', size:'..v)end\r", 0)
+        transport.writeln("local l = file.list();for k,v in pairs(l) do print(k..'\t'..v..'\\n') end\r", 0)
         while True:
             char = transport.read(1)
             if char == '' or char == chr(62):
