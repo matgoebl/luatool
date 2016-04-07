@@ -98,6 +98,14 @@ class SerialTransport(AbstractTransport):
         except serial.SerialException as exception:
             raise TransportError(exception)
 
+        # RTS = either CH_PD or nRESET (both active low = chip in reset)
+        # DTR = GPIO0 (active low = boot to flasher)
+        self.serial.setDTR(False)
+        self.serial.setRTS(False)
+        sleep(2)
+        self.serial.flushInput()
+        self.serial.flushOutput()
+
         self.serial.timeout = 3
         self.serial.interCharTimeout = 3
 
@@ -108,7 +116,7 @@ class SerialTransport(AbstractTransport):
             sys.stdout.write("\r\n->")
             sys.stdout.write(data.split("\r")[0])
         self.serial.write(data)
-        sleep(0.3)
+        sleep(0.1)
         if check > 0:
             self.performcheck(data)
         elif self.verbose:
@@ -145,6 +153,7 @@ class TcpSocketTransport(AbstractTransport):
         except socket.error:
             pass
         self.socket.settimeout(3.0)
+	#self.socket.setsockopt( IPPROTO_TCP, TCP_NODELAY, 1 )
 
     def writeln(self, data, check=1):
         if len(data) > 0 and self.verbose:
@@ -155,10 +164,12 @@ class TcpSocketTransport(AbstractTransport):
             self.performcheck(data)
         elif self.verbose:
             sys.stdout.write(" -> send without check\r\n")
+        #sleep(0.3)
 
     def write(self, data):
         self.socket.sendall(data)
-	sleep(0.1)
+        #self.socket.flush()
+        sleep(0.1)
 
     def read(self, length):
         return self.socket.recv(length)
@@ -201,6 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--delete',        default=None,           help='Delete a lua/lc file from device.')
     parser.add_argument('--ip',            default=None,           help='Connect to a telnet server on the device (--ip IP[:port])')
     parser.add_argument('-W', '--strip-whitespace',dest='strip',action='store_true',help='Remove leading/trailing whitespace, empty lines and comments')
+    parser.add_argument('-A', '--auth',    default=None,           help='send auth tag as comment to provide authorization')
     args = parser.parse_args()
 
     try:
@@ -211,6 +223,13 @@ if __name__ == '__main__':
 
     if args.verbose:
         transport.setverbose(True)
+
+    if args.auth:
+        transport.writeln("-- " + args.auth + "\r",0)
+        while True:
+            char = transport.read(1)
+            if char == ' ':
+                break
 
     if args.get:
         transport.writeln("=file.open('" + args.get + "', 'r')\r", 0)
@@ -256,7 +275,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.list:
-        transport.writeln("local l = file.list();for k,v in pairs(l) do print(k..'\t'..v..'\\n') end\r", 0)
+        transport.writeln("local l = '' for k,v in pairs(file.list()) do l=l..k..'\\t'..v..'\\n' end print(l..'>')\r", 0)
         while True:
             char = transport.read(1)
             if char == '' or char == chr(62):
