@@ -64,8 +64,9 @@ class AbstractTransport:
             if char == chr(13) or char == chr(10):  # LF or CR
                 if line != '':
                     line = line.strip()
-                    if line+'\r' == expected and self.verbose:
-                        sys.stdout.write(" -> ok")
+                    if line+'\r' == expected:
+                        if self.verbose:
+                            sys.stdout.write(" -> ok")
                     else:
                         if line[:4] == "lua:":
                             sys.stdout.write("\r\n\r\nLua ERROR: %s" % line)
@@ -98,16 +99,28 @@ class SerialTransport(AbstractTransport):
         except serial.SerialException as exception:
             raise TransportError(exception)
 
+        print("do reset..")
+        self.serial.flushInput()
+        self.serial.flushOutput()
         # RTS = either CH_PD or nRESET (both active low = chip in reset)
         # DTR = GPIO0 (active low = boot to flasher)
+        self.serial.setRTS(True)
         self.serial.setDTR(False)
+        sleep(0.1)
         self.serial.setRTS(False)
-        sleep(2)
+        self.serial.setDTR(False)
+        sleep(1.5)
+        self.serial.timeout = 3
+        self.serial.interCharTimeout = 3
+        self.serial.write("-- UUUUUUUU\r")
+        sleep(0.1)
+        print(self.serial.read(9999))
         self.serial.flushInput()
         self.serial.flushOutput()
 
         self.serial.timeout = 3
         self.serial.interCharTimeout = 3
+        print("..reset done")
 
     def writeln(self, data, check=1):
         if self.serial.inWaiting() > 0:
