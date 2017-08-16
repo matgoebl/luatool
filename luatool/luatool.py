@@ -362,29 +362,10 @@ if __name__ == '__main__':
         if args.verbose:
             sys.stderr.write("Upload starting\r\n")
 
-        # remove existing file on device
-        if args.append==False:
-            if args.verbose:
-                sys.stderr.write("Stage 1. Deleting old file from flash memory")
-            transport.writeln("file.open(\"" + args.dest + "\", \"w\")\r")
-            transport.writeln("file.close()\r")
-            transport.writeln("file.remove(\"" + args.dest + "\")\r")
-        else:
-            if args.verbose:
-                sys.stderr.write("[SKIPPED] Stage 1. Deleting old file from flash memory [SKIPPED]")
-
-
-        # read source file line by line and write to device
-        if args.verbose:
-            sys.stderr.write("\r\nStage 2. Creating file in flash memory and write first line")
-        if args.append: 
-            transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
-        else:
-            transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
-        if args.verbose:
-            sys.stderr.write("\r\nStage 3. Start writing data to flash memory...")
-
         if args.binary:
+          if args.verbose:
+              sys.stderr.write("\r\nSingle Stage: Do Binary Upload")
+          transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
           total_len=0
           if args.verbose:
             transport.writeln("node.output(nil) sv_recv_total=0 sv_conn:on(\"receive\", function(c,d) file.write(d) print(d:len()) sv_recv_total=sv_recv_total+d:len() end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() print(\"Received \"..sv_recv_total..\" bytes\") end)",0)
@@ -405,8 +386,19 @@ if __name__ == '__main__':
           if args.verbose:
             sys.stderr.write("\r\nEnd. Uploaded {} bytes, Need to close connection after binary upload\r\n".format(total_len))
           exit(0)
+
+        # read source file line by line and write to device
+        if args.verbose:
+            sys.stderr.write("\r\nStage 1. Creating file in flash memory and write first line")
+        if args.append: 
+            transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
         else:
-          while True:
+            transport.writeln("file.open(\"" + args.dest + ".new\", \"w+\")\r")
+
+        if args.verbose:
+            sys.stderr.write("\r\nStage 2. Start writing data to flash memory...")
+
+        while True:
             line = f.readline()
             if not line:
                 break
@@ -420,14 +412,16 @@ if __name__ == '__main__':
         # close both files
         f.close()
         if args.verbose:
-            sys.stderr.write("\r\nStage 4. Flush data and closing file")
+            sys.stderr.write("\r\nStage 3. Flush data and closing file")
         transport.writeln("file.flush()\r")
         transport.writeln("file.close()\r")
+        if not args.append: 
+            transport.writeln("file.rename(\"" + args.dest + ".new\", \"" + args.dest + "\")\r")
 
     # compile?
     if args.compile:
         if args.verbose:
-            sys.stderr.write("\r\nStage 5. Compiling")
+            sys.stderr.write("\r\nStage 4. Compiling")
         transport.writeln("node.compile(\"" + args.dest + "\")\r")
         transport.writeln("file.remove(\"" + args.dest + "\")\r")
 
