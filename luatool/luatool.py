@@ -393,7 +393,7 @@ if __name__ == '__main__':
         if args.append: 
             transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
         else:
-            transport.writeln("file.open(\"" + args.dest + ".new\", \"w+\")\r")
+            transport.writeln("file.remove(\"" + args.dest + ".new\") file.open(\"" + args.dest + ".new\", \"w+\")\r")
 
         if args.verbose:
             sys.stderr.write("\r\nStage 2. Start writing data to flash memory...")
@@ -415,8 +415,9 @@ if __name__ == '__main__':
             sys.stderr.write("\r\nStage 3. Flush data and closing file")
         transport.writeln("file.flush()\r")
         transport.writeln("file.close()\r")
-        if not args.append: 
-            transport.writeln("file.rename(\"" + args.dest + ".new\", \"" + args.dest + "\")\r")
+        if not args.append:
+            sleep(1.0)
+            transport.writeln("file.remove(\"" + args.dest + "\") file.rename(\"" + args.dest + ".new\", \"" + args.dest + "\")\r")
 
     # compile?
     if args.compile:
