@@ -52,7 +52,7 @@ class AbstractTransport:
         raise NotImplementedError('Function not implemented')
 
     def writer(self, data):
-        self.writeln("file.writeline([==[" + data + "]==])\r")
+        self.writeln("file.writeline([==[" + data + "]==])\n")
 
     def performcheck(self, expected):
         line = ''
@@ -64,7 +64,7 @@ class AbstractTransport:
             if char == chr(13) or char == chr(10):  # LF or CR
                 if line != '':
                     line = line.strip()
-                    if line+'\r' == expected:
+                    if line+'\r' == expected or line+'\n' == expected:
                         if self.verbose:
                             sys.stdout.write(" -> ok")
                     else:
@@ -112,7 +112,7 @@ class SerialTransport(AbstractTransport):
         sleep(1.5)
         self.serial.timeout = 3
         self.serial.interCharTimeout = 3
-        self.serial.write("-- UUUUUUUU\r")
+        self.serial.write("-- UUUUUUUU\n")
         sleep(0.1)
         print(self.serial.read(9999))
         self.serial.flushInput()
@@ -171,7 +171,7 @@ class TcpSocketTransport(AbstractTransport):
     def writeln(self, data, check=1):
         if len(data) > 0 and self.verbose:
             sys.stdout.write("\r\n->")
-            sys.stdout.write(data.split("\r")[0])
+            sys.stdout.write(data.split("\n")[0])
         self.socket.sendall(data)
         if check > 0:
             self.performcheck(data)
@@ -238,14 +238,10 @@ if __name__ == '__main__':
         transport.setverbose(True)
 
     if args.auth:
-        transport.writeln("-- " + args.auth + "\r",0)
-        while True:
-            char = transport.read(1)
-            if char == ' ':
-                break
+        transport.writeln("-- " + args.auth + "\n",1)
 
     if args.get:
-        transport.writeln("=file.open('" + args.get + "', 'r')\r", 0)
+        transport.writeln("=file.open('" + args.get + "', 'r')\n", 0)
         line = ""
         while True:
             char = transport.read(1)
@@ -265,7 +261,7 @@ if __name__ == '__main__':
 
         # file.readline() includes trailing newlines so they are doubled
         # detect EOF as "nil" followed by single newline and prompt (prompt could appear elsewhere)
-        transport.writeln("local l; repeat l = file.readline(); print(l) until l == nil;file.close()\r", 0)
+        transport.writeln("local l; repeat l = file.readline(); print(l) until l == nil;file.close()\n", 0)
 
         line = ""
         while True:
@@ -288,7 +284,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.list:
-        transport.writeln("local l = '' for k,v in pairs(file.list()) do l=l..k..'\\t'..v..'\\n' end print(l..'>')\r", 0)
+        transport.writeln("local l = '' for k,v in pairs(file.list()) do l=l..k..'\\t'..v..'\\n' end print(l..'>')\n", 0)
         while True:
             char = transport.read(1)
             if char == '' or char == chr(62):
@@ -297,7 +293,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.id:
-        transport.writeln("=node.chipid()\r", 0)
+        transport.writeln("=node.chipid()\n", 0)
         id=""
         while True:
             char = transport.read(1)
@@ -309,7 +305,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.wipe:
-        transport.writeln("local l = file.list();for k,v in pairs(l) do print(k)end\r", 0)
+        transport.writeln("local l = file.list();for k,v in pairs(l) do print(k)end\n", 0)
         file_list = []
         fn = ""
         while True:
@@ -325,11 +321,11 @@ if __name__ == '__main__':
         for fn in file_list[1:]:  # first line is the list command sent to device
             if args.verbose:
                 sys.stderr.write("Delete file {} from device.\r\n".format(fn))
-            transport.writeln("file.remove(\"" + fn + "\")\r")
+            transport.writeln("file.remove(\"" + fn + "\")\n")
         sys.exit(0)
 
     if args.delete:
-        transport.writeln("file.remove(\"" + args.delete + "\")\r")
+        transport.writeln("file.remove(\"" + args.delete + "\")\n")
         sys.exit(0)
 
     if args.src:
@@ -365,7 +361,7 @@ if __name__ == '__main__':
         if args.binary:
           if args.verbose:
               sys.stderr.write("\r\nSingle Stage: Do Binary Upload")
-          transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\r")
+          transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\n")
           total_len=0
           if args.verbose:
             transport.writeln("node.output(nil) sv_recv_total=0 sv_conn:on(\"receive\", function(c,d) file.write(d) print(d:len()) sv_recv_total=sv_recv_total+d:len() end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() print(\"Received \"..sv_recv_total..\" bytes\") end)",0)
@@ -391,9 +387,9 @@ if __name__ == '__main__':
         if args.verbose:
             sys.stderr.write("\r\nStage 1. Creating file in flash memory and write first line")
         if args.append: 
-            transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\r")
+            transport.writeln("file.open(\"" + args.dest + "\", \"a+\")\n")
         else:
-            transport.writeln("file.remove(\"" + args.dest + ".new\") file.open(\"" + args.dest + ".new\", \"w+\")\r")
+            transport.writeln("file.remove(\"" + args.dest + ".new\") file.open(\"" + args.dest + ".new\", \"w+\")\n")
 
         if args.verbose:
             sys.stderr.write("\r\nStage 2. Start writing data to flash memory...")
@@ -413,25 +409,25 @@ if __name__ == '__main__':
         f.close()
         if args.verbose:
             sys.stderr.write("\r\nStage 3. Flush data and closing file")
-        transport.writeln("file.flush()\r")
-        transport.writeln("file.close()\r")
+        transport.writeln("file.flush()\n")
+        transport.writeln("file.close()\n")
         if not args.append:
             sleep(1.0)
-            transport.writeln("file.remove(\"" + args.dest + "\") file.rename(\"" + args.dest + ".new\", \"" + args.dest + "\")\r")
+            transport.writeln("file.remove(\"" + args.dest + "\") file.rename(\"" + args.dest + ".new\", \"" + args.dest + "\")\n")
 
     # compile?
     if args.compile:
         if args.verbose:
             sys.stderr.write("\r\nStage 4. Compiling")
-        transport.writeln("node.compile(\"" + args.dest + "\")\r")
-        transport.writeln("file.remove(\"" + args.dest + "\")\r")
+        transport.writeln("node.compile(\"" + args.dest + "\")\n")
+        transport.writeln("file.remove(\"" + args.dest + "\")\n")
 
     if args.dofile:   # never exec if restart=1
         dofile_name = args.compile and args.dest.replace(".lua", ".lc") or args.dest
-        transport.writeln("dofile(\"" + dofile_name + "\")\r", 0)
+        transport.writeln("dofile(\"" + dofile_name + "\")\n", 0)
 
     if args.execute is not None:
-        transport.writeln(args.execute+"\r", 0)
+        transport.writeln(args.execute+"\n", 0)
         while True:
             char = transport.read(1)
             if char == '' or char == chr(62):
@@ -441,7 +437,7 @@ if __name__ == '__main__':
 
     # restart or dofile
     if args.restart:
-        transport.writeln("node.restart()\r", 0)
+        transport.writeln("node.restart()\n", 0)
 
     # close serial port
     transport.close()
