@@ -88,7 +88,7 @@ class AbstractTransport:
 
 
 class SerialTransport(AbstractTransport):
-    def __init__(self, port, baud):
+    def __init__(self, port, baud, noreset):
         self.port = port
         self.baud = baud
         self.serial = None
@@ -99,28 +99,29 @@ class SerialTransport(AbstractTransport):
         except serial.SerialException as exception:
             raise TransportError(exception)
 
-        print("do reset..")
         self.serial.flushInput()
         self.serial.flushOutput()
-        # RTS = either CH_PD or nRESET (both active low = chip in reset)
-        # DTR = GPIO0 (active low = boot to flasher)
-        self.serial.setRTS(True)
-        self.serial.setDTR(False)
-        sleep(0.1)
-        self.serial.setRTS(False)
-        self.serial.setDTR(False)
-        sleep(1.5)
-        self.serial.timeout = 3
-        self.serial.interCharTimeout = 3
-        self.serial.write("-- UUUUUUUU\n")
-        sleep(0.1)
-        print(self.serial.read(9999))
-        self.serial.flushInput()
-        self.serial.flushOutput()
+        if not noreset:
+            print("do reset..")
+            # RTS = either CH_PD or nRESET (both active low = chip in reset)
+            # DTR = GPIO0 (active low = boot to flasher)
+            self.serial.setRTS(True)
+            self.serial.setDTR(False)
+            sleep(0.1)
+            self.serial.setRTS(False)
+            self.serial.setDTR(False)
+            sleep(1.5)
+            self.serial.timeout = 3
+            self.serial.interCharTimeout = 3
+            self.serial.write("-- UUUUUUUU\n")
+            sleep(0.1)
+            print(self.serial.read(9999))
+            self.serial.flushInput()
+            self.serial.flushOutput()
 
-        self.serial.timeout = 3
-        self.serial.interCharTimeout = 3
-        print("..reset done")
+            self.serial.timeout = 3
+            self.serial.interCharTimeout = 3
+            print("..reset done")
 
     def writeln(self, data, check=1):
         if self.serial.inWaiting() > 0:
@@ -201,7 +202,7 @@ def decidetransport(cliargs):
             port = 23
         return TcpSocketTransport(host, port)
     else:
-        return SerialTransport(cliargs.port, cliargs.baud)
+        return SerialTransport(cliargs.port, cliargs.baud, cliargs.noreset)
 
 
 if __name__ == '__main__':
@@ -214,6 +215,7 @@ if __name__ == '__main__':
     parser.add_argument('-B', '--binary',  action='store_true',    help='Upload as binary (needs sv_conn global in telnet.lua)')
     parser.add_argument('-c', '--compile', action='store_true',    help='Compile lua to lc after upload')
     parser.add_argument('-r', '--restart', action='store_true',    help='Restart MCU after upload')
+    parser.add_argument('-R', '--noreset', action='store_true',    help='Do not reset MCU before command (only serial)')
     parser.add_argument('-d', '--dofile',  action='store_true',    help='Run the Lua script after upload')
     parser.add_argument('-v', '--verbose', action='store_true',    help="Show progress messages.")
     parser.add_argument('-a', '--append',  action='store_true',    help='Append source file to destination file.')
@@ -364,12 +366,13 @@ if __name__ == '__main__':
           transport.writeln("file.open(\"" + args.dest + "\", \"w+\")\n")
           total_len=0
           if args.verbose:
-            transport.writeln("node.output(nil) sv_recv_total=0 sv_conn:on(\"receive\", function(c,d) file.write(d) print(d:len()) sv_recv_total=sv_recv_total+d:len() end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() print(\"Received \"..sv_recv_total..\" bytes\") end)",0)
+            transport.writeln("sv_recv_total=0 sv_conn:on(\"receive\", function(c,d) node.output(nil) file.write(d) print(d:len()) sv_recv_total=sv_recv_total+d:len() end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() print(\"Received \"..sv_recv_total..\" bytes\") end)\n",1)
           else:
             transport.writeln("node.output(nil) sv_conn:on(\"receive\", function(c,d) file.write(d) end) sv_conn:on(\"disconnection\", function(c) file.flush() file.close() end)",0)
+          sys.stdout.write("\r\n")
           sleep(1)
           while True:
-            data = f.read(256)
+            data = f.read(1400)
             if not data:
                 break
             transport.write(data)
