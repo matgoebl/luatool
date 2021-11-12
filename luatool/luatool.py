@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # ESP8266 luatool
 # Author e-mail: 4ref0nt@gmail.com
@@ -113,9 +113,9 @@ class SerialTransport(AbstractTransport):
             sleep(1.5)
             self.serial.timeout = 3
             self.serial.interCharTimeout = 3
-            self.serial.write("-- UUUUUUUU\n")
+            self.serial.write("-- UUUUUUUU\n".encode('latin-1'))
             sleep(0.1)
-            print(self.serial.read(9999))
+            print(self.serial.read(9999).decode('latin-1'))
             self.serial.flushInput()
             self.serial.flushOutput()
 
@@ -129,7 +129,7 @@ class SerialTransport(AbstractTransport):
         if len(data) > 0 and self.verbose:
             sys.stdout.write("\r\n->")
             sys.stdout.write(data.split("\r")[0])
-        self.serial.write(data)
+        self.serial.write(data.encode('latin-1'))
         sleep(0.1)
         if check > 0:
             self.performcheck(data)
@@ -137,7 +137,7 @@ class SerialTransport(AbstractTransport):
             sys.stdout.write(" -> send without check\r\n")
 
     def read(self, length):
-        return self.serial.read(length)
+        return self.serial.read(length).decode('latin-1')
 
     def close(self):
         self.serial.flush()
@@ -173,7 +173,7 @@ class TcpSocketTransport(AbstractTransport):
         if len(data) > 0 and self.verbose:
             sys.stdout.write("\r\n->")
             sys.stdout.write(data.split("\n")[0])
-        self.socket.sendall(data)
+        self.socket.sendall(data.encode('latin-1'))
         if check > 0:
             self.performcheck(data)
         elif self.verbose:
@@ -181,12 +181,12 @@ class TcpSocketTransport(AbstractTransport):
         #sleep(0.3)
 
     def write(self, data):
-        self.socket.sendall(data)
+        self.socket.sendall(data.encode('latin-1'))
         #self.socket.flush()
         sleep(0.1)
 
     def read(self, length):
-        return self.socket.recv(length)
+        return self.socket.recv(length).decode('latin-1')
 
     def close(self):
         self.socket.close()
@@ -336,7 +336,10 @@ if __name__ == '__main__':
 
         # open source file for reading
         try:
-            f = open(args.src, "rt")
+            if args.binary:
+                f = open(args.src, "rb")
+            else:
+                f = open(args.src, "rt")
         except:
             sys.stderr.write("Could not open input file \"%s\"\n" % args.src)
             sys.exit(1)
@@ -344,13 +347,14 @@ if __name__ == '__main__':
         # Verify the selected file will not exceed the size of the serial buffer.
         # The size of the buffer is 256. This script does not accept files with
         # lines longer than 230 characters to have some room for command overhead.
-        for ln in f:
-            if len(ln) > 230 and args.binary is None:
-                sys.stderr.write("File \"%s\" contains a line with more than 240 "
-                                 "characters. This exceeds the size of the serial buffer.\n"
-                                 % args.src)
-                f.close()
-                sys.exit(1)
+        if args.binary is None:
+            for ln in f:
+                if len(ln) > 230:
+                    sys.stderr.write("File \"%s\" contains a line with more than 240 "
+                                     "characters. This exceeds the size of the serial buffer.\n"
+                                     % args.src)
+                    f.close()
+                    sys.exit(1)
 
         # Go back to the beginning of the file after verifying it has the correct
         # line length
@@ -375,7 +379,7 @@ if __name__ == '__main__':
             data = f.read(1400)
             if not data:
                 break
-            transport.write(data)
+            transport.write(data.decode('latin-1'))
             total_len+=len(data)
             if args.verbose:
                 sys.stderr.write("\r\nWrote {} bytes...".format(len(data)))
