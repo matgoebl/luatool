@@ -380,11 +380,12 @@ if __name__ == '__main__':
             if not data:
                 break
             transport.write(data.decode('latin-1'))
+            sleep(0.2)
             total_len+=len(data)
             if args.verbose:
                 sys.stderr.write("\r\nWrote {} bytes...".format(len(data)))
           f.close()
-          sleep(1)
+          sleep(3)
           transport.close()
           if args.verbose:
             sys.stderr.write("\r\nEnd. Uploaded {} bytes, Need to close connection after binary upload\r\n".format(total_len))
